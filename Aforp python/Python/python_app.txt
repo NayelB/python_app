@@ -1,0 +1,254 @@
+import pygame
+import random
+import math
+
+# Initialisation de Pygame
+pygame.init()
+
+# Constantes
+WIDTH, HEIGHT = 1024, 768
+TILE_SIZE = 64
+FPS = 60
+
+# Couleurs
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+
+# Configuration de la fenêtre
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Top-Down Shooter")
+
+# Police pour l'affichage du texte
+font = pygame.font.SysFont(None, 36)
+
+# Carte du niveau
+level_map = [
+    "#########################",
+    "#.......................#",
+    "#..#..#####.#.####......#",
+    "#..#........#...........#",
+    "#..#######..######......#",
+    "#.......................#",
+    "#..................######",
+    "#..######...............#",
+    "#.......................#",
+    "#########################"
+]
+
+# Classe Player
+class Player:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.angle = 0
+        self.health = 100
+        self.lives = 3
+        self.alive = True
+        self.speed = 5
+
+    def draw(self):
+        pygame.draw.circle(screen, RED, (int(self.x), int(self.y)), 10)
+        pygame.draw.rect(screen, RED, (int(self.x) - 2, int(self.y) - 2, 4, 8))  # Représente l'arme
+        self.draw_health_bar()
+
+    def draw_health_bar(self):
+        pygame.draw.rect(screen, RED, (self.x - 20, self.y - 20, 40, 5))
+        pygame.draw.rect(screen, GREEN, (self.x - 20, self.y - 20, 40 * (self.health / 100), 5))
+
+    def respawn(self):
+        self.x, self.y = TILE_SIZE * 1.5, TILE_SIZE * 1.5
+        self.angle = 0
+        self.health = 100
+
+# Classe Enemy
+class Enemy:
+    def __init__(self, x, y, health=100, is_boss=False):
+        self.x = x
+        self.y = y
+        self.health = health
+        self.is_boss = is_boss
+        self.speed = 2 if not is_boss else 1.5
+        self.angle = random.uniform(0, 2 * math.pi)
+
+    def draw(self):
+        color = BLUE if not self.is_boss else RED
+        size = 10 if not self.is_boss else 20
+        pygame.draw.circle(screen, color, (int(self.x), int(self.y)), size)
+        pygame.draw.rect(screen, color, (int(self.x) - 2, int(self.y) - 2, 4, 8))  # Représente l'arme
+        if self.is_boss:
+            self.draw_skull()
+        self.draw_health_bar()
+
+    def draw_health_bar(self):
+        width = 40 if not self.is_boss else 80
+        pygame.draw.rect(screen, RED, (self.x - width // 2, self.y - 20, width, 5))
+        pygame.draw.rect(screen, GREEN, (self.x - width // 2, self.y - 20, width * (self.health / 100), 5))
+
+    def draw_skull(self):
+        skull_surface = pygame.image.load("skeleton_head.png")  # Chargement de l'image de la tête de squelette
+        skull_surface = pygame.transform.scale(skull_surface, (40, 40))  # Redimensionnement de l'image
+        screen.blit(skull_surface, (self.x - 20, self.y - 30))  # Affichage de l'image à la position de l'ennemi
+
+    def shoot(self):
+        if random.random() < 0.01:  # Probabilité de tirer
+            angle = random.uniform(0, 2 * math.pi)
+            bullet = Bullet(self.x, self.y, angle)
+            enemy_bullets.append(bullet)
+
+    def move(self):
+        if random.random() < 0.02:  # Probabilité de changer de direction
+            self.angle = random.uniform(0, 2 * math.pi)
+        new_x = self.x + math.cos(self.angle) * self.speed
+        new_y = self.y + math.sin(self.angle) * self.speed
+        if level_map[int(new_y / TILE_SIZE)][int(new_x / TILE_SIZE)] == ".":
+            self.x = new_x
+            self.y = new_y
+
+# Classe Projectile
+class Bullet:
+    def __init__(self, x, y, angle):
+        self.x = x
+        self.y = y
+        self.angle = angle
+        self.speed = 10
+
+    def update(self):
+        self.x += math.cos(self.angle) * self.speed
+        self.y += math.sin(self.angle) * self.speed
+
+    def draw(self):
+        pygame.draw.circle(screen, GREEN, (int(self.x), int(self.y)), 5)
+
+# Classe Item de soin
+class HealItem:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def draw(self):
+        pygame.draw.rect(screen, GREEN, (self.x, self.y, TILE_SIZE, TILE_SIZE))
+        pygame.draw.line(screen, WHITE, (self.x + TILE_SIZE // 2, self.y + 10), (self.x + TILE_SIZE // 2, self.y + TILE_SIZE - 10), 3)
+        pygame.draw.line(screen, WHITE, (self.x + 10, self.y + TILE_SIZE // 2), (self.x + TILE_SIZE - 10, self.y + TILE_SIZE // 2), 3)
+
+# Fonction de rendu des murs
+def draw_walls():
+    for y, row in enumerate(level_map):
+        for x, char in enumerate(row):
+            if char == "#":
+                pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+# Position initiale du joueur
+player = Player(TILE_SIZE * 1.5, TILE_SIZE * 1.5)
+
+# Liste des ennemis
+enemies = [
+    Enemy(TILE_SIZE * 4.5, TILE_SIZE * 2.5),
+    Enemy(TILE_SIZE * 2.5, TILE_SIZE * 4.5),
+    Enemy(TILE_SIZE * 5.5, TILE_SIZE * 5.5),
+    Enemy(TILE_SIZE * 6.5, TILE_SIZE * 2.5),
+    Enemy(TILE_SIZE * 3.5, TILE_SIZE * 6.5),
+    Enemy(TILE_SIZE * 10.5, TILE_SIZE * 2.5, 200, True)  # Boss
+]
+
+# Liste des projectiles
+bullets = []
+enemy_bullets = []
+
+# Liste des items de soin
+heal_items = [
+    HealItem(TILE_SIZE * 7.5, TILE_SIZE * 2.5),
+    HealItem(TILE_SIZE * 4.5, TILE_SIZE * 5.5)
+]
+
+# Compteur pour les ennemis tués
+enemies_killed = 0
+
+# Fonction principale du jeu
+def main():
+    global player, enemies_killed
+    clock = pygame.time.Clock()
+    running = True
+    
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and player.alive:
+                    # Créer un nouveau projectile
+                    bullet = Bullet(player.x, player.y, player.angle)
+                    bullets.append(bullet)
+
+        # Gestion des touches
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            player.angle -= 0.1
+        if keys[pygame.K_RIGHT]:
+            player.angle += 0.1
+
+        # Mouvements du joueur
+        if keys[pygame.K_q] and player.alive:
+            new_x = player.x - player.speed
+            if level_map[int(player.y / TILE_SIZE)][int(new_x / TILE_SIZE)] == ".":
+                player.x = new_x
+        if keys[pygame.K_d] and player.alive:
+            new_x = player.x + player.speed
+            if level_map[int(player.y / TILE_SIZE)][int(new_x / TILE_SIZE)] == ".":
+                player.x = new_x
+        if keys[pygame.K_z] and player.alive:
+            new_y = player.y - player.speed
+            if level_map[int(new_y / TILE_SIZE)][int(player.x / TILE_SIZE)] == ".":
+                player.y = new_y
+        if keys[pygame.K_s] and player.alive:
+            new_y = player.y + player.speed
+            if level_map[int(new_y / TILE_SIZE)][int(player.x / TILE_SIZE)] == ".":
+                player.y = new_y
+
+        # Limiter les mouvements du joueur aux limites de la fenêtre
+        player.x = max(0, min(player.x, WIDTH))
+        player.y = max(0, min(player.y, HEIGHT))
+
+        # Mise à jour des projectiles du joueur
+
+
+        # Effacer l'écran
+        screen.fill(BLACK)
+
+        # Dessiner les murs
+        draw_walls()
+
+        # Dessiner les items de soin
+        for heal_item in heal_items:
+            heal_item.draw()
+
+        # Dessiner le joueur
+        if player.alive:
+            player.draw()
+
+        # Dessiner les ennemis
+        for enemy in enemies:
+            enemy.draw()
+
+        # Dessiner les projectiles du joueur
+        for bullet in bullets:
+            bullet.draw()
+
+        # Dessiner les projectiles des ennemis
+        for bullet in enemy_bullets:
+            bullet.draw()
+
+        # Mettre à jour l'affichage
+        pygame.display.flip()
+
+        # Limiter les images par seconde
+        clock.tick(FPS)
+
+    # Quitter Pygame
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()

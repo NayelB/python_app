@@ -1,0 +1,45 @@
+        # Vérifier les collisions avec les items de soin
+        for heal_item in heal_items:
+            if math.hypot(heal_item.x + TILE_SIZE // 2 - player.x, heal_item.y + TILE_SIZE // 2 - player.y) < TILE_SIZE // 2:
+                player.health = min(100, player.health + 25)
+                heal_items.remove(heal_item)
+                break
+
+        # Effacer l'écran
+        screen.fill(BLACK)
+
+        # Dessiner les murs
+        draw_walls()
+
+        # Dessiner les items de soin
+        for heal_item in heal_items:
+            heal_item.draw()
+
+        # Dessiner le joueur
+        if player.alive:
+            player.draw()
+
+        # Dessiner les ennemis
+        for enemy in enemies:
+            enemy.draw()
+
+        # Dessiner les projectiles du joueur
+        for bullet in bullets:
+            bullet.draw()
+
+        # Dessiner les projectiles des ennemis
+        for bullet in enemy_bullets:
+            bullet.draw()
+
+        # Mettre à jour l'affichage
+        pygame.display.flip()
+
+        # Limiter les images par seconde
+        clock.tick(FPS)
+
+    # Quitter Pygame
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
